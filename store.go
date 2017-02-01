@@ -23,36 +23,30 @@ func Get(r *http.Request) *Session{
 		return nil
 	}
 	key := cookie.Value
-	log.Println("cookie key: "+key)// DEBUG
+	log.Println("Got cookie: "+key)
 	session := store[key]
 	if(session == nil) {
 		return nil
 	}
-	
+
 	if(session.expires.Before(time.Now())){ // is expired
 		log.Println("Session is expired.")
 		delete(store, key)
-		return nil 
+		return nil
 	}
 	return session
 }
 func New(w http.ResponseWriter) *Session{
-	var key string
-	for{
-		b := make([]byte, n)
-		_, err := rand.Read(b)
-		if err != nil {
-			log.Fatal(err)
+	key := ""
+	exists := true;
+	for exists{
+		key = RandomString(n)
+		if key == ""{
 			return nil
 		}
-		key = hex.EncodeToString(b)
-	    if _, exists := store[key]; exists{ // if key doesnt exist, break
-	    	log.Println("Session key generation - key exists, generating again.")
-	    }else{
-	    	break;
-	    }
+		_, exists = store[key]
 	}
-	log.Println("cookie key: "+key)// DEBUG
+	log.Println("new cookie key: "+key)// DEBUG
 
 	expTime := time.Now().Add(expiration)
     session := &Session{
@@ -66,4 +60,14 @@ func New(w http.ResponseWriter) *Session{
     	Expires: expTime})
 
     return session
+}
+
+func RandomString(len uint8) string {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		log.Fatal(err)
+		return ""
+	}
+	return hex.EncodeToString(b)
 }
