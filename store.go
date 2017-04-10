@@ -1,21 +1,24 @@
 package session
-
+// TODO benchmark mutex locking vs channel and comunication sync
 import (
 	"crypto/rand"
 	"encoding/hex"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
 var expiration time.Duration
 var n uint64
+var mutex *sync.Mutex
 var store map[string]*Session
 
 func InitStore(defaultExpiration time.Duration, sessionIdLength uint64) {
 	store = make(map[string]*Session)
 	expiration = defaultExpiration
 	n = sessionIdLength / 2 // because one byte is represented by two hex digits. e.g 0xFF is 0b11111111
+	mutex = &sync.Mutex{}
 }
 
 func Get(r *http.Request) *Session {
@@ -26,7 +29,11 @@ func Get(r *http.Request) *Session {
 	}
 	key := cookie.Value
 	log.Println("Got cookie: " + key)
+
+	mutex.Lock()
 	session := store[key]
+	mutex.Unlock()
+
 	if session == nil {
 		return nil
 	}
@@ -46,7 +53,9 @@ func New(w http.ResponseWriter) *Session {
 		if key == "" {
 			return nil
 		}
+		mutex.Lock()
 		_, exists = store[key]
+		mutex.Unlock()
 	}
 	log.Println("new cookie key: " + key) // DEBUG
 
@@ -54,7 +63,10 @@ func New(w http.ResponseWriter) *Session {
 	session := &Session{
 		values:  make(map[string]interface{}),
 		expires: expTime}
+
+	mutex.Lock()
 	store[key] = session
+	mutex.Unlock()
 
 	http.SetCookie(w, &http.Cookie{
 		Name:    "authid",
